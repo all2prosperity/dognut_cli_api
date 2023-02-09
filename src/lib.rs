@@ -1,7 +1,8 @@
 extern crate core;
 
-mod decode;
-mod pb;
+pub mod decode;
+pub mod network;
+pub mod pb;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
