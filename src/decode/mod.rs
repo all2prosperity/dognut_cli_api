@@ -150,6 +150,9 @@ impl rgbaDecoder {
                 recv(self.net_rx) -> data =>  {
                     match data {
                         Ok(data) => {
+                            if data.is_empty() {
+                                continue;
+                            }
                             self.send_packets(&data).expect("must send ok");
                         }
                         Err(err) => {

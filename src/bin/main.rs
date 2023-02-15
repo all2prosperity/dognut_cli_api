@@ -22,6 +22,7 @@ use pixels::SurfaceTexture;
 use protobuf::{EnumOrUnknown, Message};
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
+use tokio::runtime::Runtime;
 
 use bytes::{BufMut, Buf};
 use dognut_cli_lib::pb::netpacket::{NetPacket, PacketKind};
@@ -41,19 +42,22 @@ fn main() {
     let surface = SurfaceTexture::new(size.width,  size.height, &window);
     let mut pixels = Pixels::new(WIDTH, HEIGHT, surface).expect("Failed to create pixels");
     pixels.set_clear_color(Color::WHITE);
-
-    let pair = read_a_av_net_packet().unwrap();
-
+    //let pair = read_a_av_net_packet().unwrap();
     let (packet_tx, packet_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
     let (net_tx, net_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
+    //let handle = rgbaDecoder::run_from_parameter(net_rx, packet_tx, (WIDTH, HEIGHT), pair.1);
+    let handle = rgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT));
 
-    let handle = rgbaDecoder::run_from_parameter(net_rx, packet_tx, (WIDTH, HEIGHT), pair.1);
+    //let packet = pair.0.write_to_bytes().unwrap();
 
+    //net_tx.send(packet).expect("should send ok");
 
+    let handle = std::thread::spawn(move || {
+        let rt = Runtime::new().unwrap();
+        let addr = env::args().nth(1).unwrap();
+        rt.block_on(keep_reading_packet_from_net(net_tx, addr));
+    });
 
-    let packet = pair.0.write_to_bytes().unwrap();
-
-     net_tx.send(packet).expect("should send ok");
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -82,7 +86,7 @@ fn main() {
                     }
                 }
             }
-            default(tokio::time::Duration::from_millis(500)) => (),
+            default(tokio::time::Duration::from_millis(100)) => (),
         }
 
         //pixels.render().expect("Failed to render");
@@ -153,16 +157,15 @@ pub async fn keep_reading_packet_from_net(sender: crossbeam_channel::Sender<Vec<
             }
         };
         let mut len = bytes::Bytes::from(length.clone().to_vec());
-        let size = len.get_u32_ne();
+        let size = len.get_u32();
 
 
-        let mut buffer = Vec::<u8>::with_capacity(size as usize);
+        let mut buffer = vec![0u8;size as usize];
 
         if let Err(es) = stream.read_exact(&mut buffer).await {
             println!("error: !!! {}", es);
             break;
         }
-
 
         let packet = NetPacket::parse_from_bytes(buffer.as_slice()).unwrap();
 
