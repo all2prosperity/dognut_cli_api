@@ -2,7 +2,7 @@ use std::ffi::c_int;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use crossbeam_channel::{select, unbounded};
+use crossbeam_channel::{select};
 use ffmpeg::codec;
 use ffmpeg::encoder::video;
 use ffmpeg::ffi;

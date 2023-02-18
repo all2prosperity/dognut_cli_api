@@ -1,22 +1,20 @@
 extern crate core;
 
-use std::{env, ptr, slice};
+use std::{env};
 use std::io::ErrorKind;
 use crossbeam_channel::select;
 use ffmpeg_next::codec::Parameters;
-use ffmpeg_next::ffi::{av_packet_unref, avformat_open_input, AVPacket};
 use ffmpeg_next::format::input;
-use pixels::{wgpu::Surface, Pixels};
+use pixels::{Pixels};
 use winit::{event::*, window::WindowBuilder};
 use winit::event_loop::{ControlFlow, EventLoop};
 use dognut_cli_lib::decode::RgbaDecoder;
-use dognut_cli_lib::network;
+
 use dognut_cli_lib::pb::avpacket::VideoPacket;
 
 use ffmpeg_next::media::Type;
 use ffmpeg_next::Packet;
 use log::error;
-use log::Level::Error;
 use pixels::wgpu::{Color};
 use pixels::SurfaceTexture;
 use protobuf::{EnumOrUnknown, Message};
@@ -24,7 +22,7 @@ use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 
-use bytes::{BufMut, Buf};
+use bytes::Buf;
 use ffmpeg_next as ffmpeg;
 use dognut_cli_lib::pb::netpacket::{NetPacket, PacketKind};
 
@@ -43,12 +41,7 @@ fn main() {
         .unwrap();
 
     let size = window.inner_size();
-    //println!("inner size is ")
     let surface = SurfaceTexture::new(size.width, size.height, &window);
-
-    //let surface = SurfaceTexture::new(WIDTH, HEIGHT, &window);
-
-    //pixels::PixelsBuilder::new(WIDTH, HEIGHT, surface).surface_texture_format(pixels::wgpu::TextureFormat::Rgba8UnormSrgb)
 
     let mut pixels = Pixels::new(WIDTH, HEIGHT, surface).expect("Failed to create pixels");
     let format = pixels.surface_texture_format();
@@ -68,7 +61,7 @@ fn main() {
 
     let handle = RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
 
-    //dognut_cli_lib::decode::encode::RgbaEncoder::run(rgb_rx, net_tx, (WIDTH, HEIGHT));
+    //donut_cli_lib::decode::encode::RgbaEncoder::run(rgb_rx, net_tx, (WIDTH, HEIGHT));
     let handle = std::thread::spawn(move || { // network
         let rt = Runtime::new().unwrap(); // network
         let addr = env::args().nth(1).unwrap(); // network
@@ -121,7 +114,6 @@ fn main() {
             }
             //default(tokio::time::Duration::from_millis(5)) => (),
         }
-
 
         //pixels.render().expect("Failed to render");
     });

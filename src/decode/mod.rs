@@ -1,29 +1,24 @@
 pub mod encode;
 
-use std::env;
-use std::ffi::c_int;
-use std::fs::File;
-use std::io::Write;
 use std::thread::JoinHandle;
 use crossbeam_channel::{select};
 use ffmpeg_next as ffmpeg;
 
 use ffmpeg::decoder::video;
 use ffmpeg::codec;
-use ffmpeg::ffi;
+
 use ffmpeg::software::scaling;
-use ffmpeg_next::{Codec, Frame, Packet};
-use ffmpeg_next::codec::{Context, Parameters};
+use ffmpeg_next::{ Packet};
+use ffmpeg_next::codec:: Parameters;
 
 use ffmpeg_next::codec::Id::H264;
 
-use ffmpeg_next::format::{input, Pixel};
+use ffmpeg_next::format::{Pixel};
 use ffmpeg_next::frame::Video;
 use ffmpeg_next::software::scaling::Flags;
 use log::{error, info};
 use std::time::Duration;
 use ffmpeg_next::log::Level;
-use ffmpeg_next::media::Type;
 use protobuf::Message;
 use crate::pb;
 
@@ -65,8 +60,8 @@ impl RgbaDecoder {
     }
 
     pub unsafe fn new_from_parameter(tx: crossbeam_channel::Sender<Vec<u8>>, rx: crossbeam_channel::Receiver<Vec<u8>>,  dimension: (u32, u32), par: Parameters) -> Result<Self, ffmpeg::Error> {
-        ffmpeg::init()?;
-        let context =Context::from_parameters(par)?;
+
+        let context = codec::context::Context::from_parameters(par)?;
 
         let video = context.decoder().video()?;
 
@@ -86,7 +81,7 @@ impl RgbaDecoder {
 
     pub unsafe fn new(tx: crossbeam_channel::Sender<Vec<u8>>, rx: crossbeam_channel::Receiver<Vec<u8>>,  dimension: (u32, u32)) -> Result<Self, ffmpeg::Error> {
         let codec = codec::decoder::find(H264).expect("can't find h264 encoder");
-        let context = ffmpeg::codec::context::Context::new();
+        let context = codec::context::Context::new();
         let video = context.decoder().open_as(codec).unwrap();
         let scaler = scaling::Context::get(Pixel::YUV420P, dimension.0, dimension.1,
                                            Pixel::RGBA, dimension.0, dimension.1, Flags::BILINEAR)?;
@@ -101,36 +96,10 @@ impl RgbaDecoder {
         })
     }
 
-    unsafe fn wrap_context(dimension:(u32, u32)) -> Context {
-        let codec = codec::decoder::find(H264).expect("can't find h264 encoder");
-        let raw_codec = codec.as_ptr();
-        let raw_context = ffi::avcodec_alloc_context3(raw_codec);
-        (*raw_context).width = dimension.0 as c_int;
-        (*raw_context).height = dimension.1 as c_int;
-        (*raw_context).pix_fmt = ffi::AVPixelFormat::AV_PIX_FMT_YUV420P;
-        (*raw_context).time_base = ffi::AVRational{num: 1, den: 60};
-        (*raw_context).bit_rate = 4 * 1000 * 1000;
-        (*raw_context).rc_buffer_size = 8 * 1000 * 1000;
-        (*raw_context).rc_max_rate = 10 * 1000 * 1000;
-        (*raw_context).rc_min_rate = 2 * 1000 * 1000;
-        (*raw_context).framerate = ffi::AVRational{num:60, den: 1};
-        // disable b frame for realtime streaming
-        (*raw_context).max_b_frames = 0;
-        (*raw_context).has_b_frames = 0;
-        let mut k = std::ffi::CString::new("preset").unwrap();
-        let mut v = std::ffi::CString::new("fast").unwrap();
-        ffi::av_opt_set(raw_context as *mut _, k.as_ptr(), v.as_ptr(), 0);
-        k = std::ffi::CString::new("x264-params").unwrap();
-        v = std::ffi::CString::new("keyint=60:min-keyint=60:scenecut=0:force-cfr=1").unwrap();
-        ffi::av_opt_set(raw_context as *mut _, k.as_ptr(), v.as_ptr(), 0);
-
-        return Context::wrap(raw_context, None);
-    }
-
     pub fn send_packets(&mut self, net_data: &Vec<u8>) -> Result<(), ffmpeg::Error> {
         let net_packet = pb::avpacket::VideoPacket::parse_from_bytes(net_data.as_slice()).unwrap();
 
-        let mut packet= ffmpeg::Packet::copy(net_packet.data.as_slice());
+        let mut packet= Packet::copy(net_packet.data.as_slice());
         packet.set_dts(Some(net_packet.dts));
         packet.set_pts(Some(net_packet.pts));
         packet.set_duration(net_packet.duration);
@@ -183,7 +152,7 @@ impl RgbaDecoder {
     }
 }
 
-fn save_file(frame: &Video, index: usize) -> std::result::Result<(), std::io::Error> {
+fn save_file(frame: &Video, index: usize) -> Result<(), std::io::Error> {
     //image::save_buffer("image.png", frame.data(0), frame.width(), frame.height(), image::ColorType::Rgba8).unwrap();
 
 //    let mut file = File::create(format!("frame{}.ppm", index))?;
