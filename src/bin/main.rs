@@ -9,7 +9,7 @@ use ffmpeg_next::format::input;
 use pixels::{wgpu::Surface, Pixels};
 use winit::{event::*, window::WindowBuilder};
 use winit::event_loop::{ControlFlow, EventLoop};
-use dognut_cli_lib::decode::rgbaDecoder;
+use dognut_cli_lib::decode::RgbaDecoder;
 use dognut_cli_lib::network;
 use dognut_cli_lib::pb::avpacket::VideoPacket;
 
@@ -25,38 +25,55 @@ use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 
 use bytes::{BufMut, Buf};
+use ffmpeg_next as ffmpeg;
 use dognut_cli_lib::pb::netpacket::{NetPacket, PacketKind};
 
 const WIDTH: u32 = 640;
-const HEIGHT: u32 = 360;
+const HEIGHT: u32 = 480;
 
 fn main() {
+    ffmpeg::init().unwrap();
+    ffmpeg::log::set_level(ffmpeg::log::Level::Trace);
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
-        .with_title("Pixels example")
+        .with_title("Controlled Window")
         .with_inner_size(winit::dpi::LogicalSize::new(WIDTH, HEIGHT))
         .build(&event_loop)
         .unwrap();
 
     let size = window.inner_size();
-    let surface = SurfaceTexture::new(size.width,  size.height, &window);
+    //println!("inner size is ")
+    let surface = SurfaceTexture::new(size.width, size.height, &window);
+
+    //let surface = SurfaceTexture::new(WIDTH, HEIGHT, &window);
+
+    //pixels::PixelsBuilder::new(WIDTH, HEIGHT, surface).surface_texture_format(pixels::wgpu::TextureFormat::Rgba8UnormSrgb)
+
     let mut pixels = Pixels::new(WIDTH, HEIGHT, surface).expect("Failed to create pixels");
+    let format = pixels.surface_texture_format();
+    println!("surface texture format is {:?}", format);
+
     pixels.set_clear_color(Color::WHITE);
-    //let pair = read_a_av_net_packet().unwrap();
+
     let (packet_tx, packet_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
     let (net_tx, net_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
-    //let handle = rgbaDecoder::run_from_parameter(net_rx, packet_tx, (WIDTH, HEIGHT), pair.1);
-    let handle = rgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT));
 
-    //let packet = pair.0.write_to_bytes().unwrap();
+    let (rgb_tx, rgb_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
 
-    //net_tx.send(packet).expect("should send ok");
+    //let pair = read_a_av_net_packet().unwrap(); // file
+    //let handle = RgbaDecoder::run_from_parameter(net_rx, packet_tx, (WIDTH, HEIGHT), pair.1); // file
+    //let packet = pair.0.write_to_bytes().unwrap();  // file
+    //net_tx.send(packet).expect("should send ok");  // file
 
-    let handle = std::thread::spawn(move || {
-        let rt = Runtime::new().unwrap();
-        let addr = env::args().nth(1).unwrap();
-        rt.block_on(keep_reading_packet_from_net(net_tx, addr));
-    });
+    let handle = RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
+
+    //dognut_cli_lib::decode::encode::RgbaEncoder::run(rgb_rx, net_tx, (WIDTH, HEIGHT));
+    let handle = std::thread::spawn(move || { // network
+        let rt = Runtime::new().unwrap(); // network
+        let addr = env::args().nth(1).unwrap(); // network
+        rt.block_on(keep_reading_packet_from_net(net_tx, addr)); // network
+    }); // network
 
 
     event_loop.run(move |event, _, control_flow| {
@@ -67,6 +84,26 @@ fn main() {
             } => {
                 *control_flow = ControlFlow::Exit;
             }
+            Event::WindowEvent {
+                event,
+                ..
+            } => {
+                match event {
+                    WindowEvent::Resized(_) => {}
+                    WindowEvent::Moved(_) => {}
+                    WindowEvent::KeyboardInput { input, .. } => {
+                        if let Some(k) = input.virtual_keycode {
+                            if k == VirtualKeyCode::Q {
+                                *control_flow = ControlFlow::Exit;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                //window.request_redraw();
+            }
+            Event::RedrawRequested(_) => {}
+
             _ => (),
         }
 
@@ -74,11 +111,7 @@ fn main() {
             recv(packet_rx) -> data => {
                 match data {
                     Ok(data) => {
-                        let mut buffer = pixels.get_frame_mut();
-                        println!("data size is {}, buffer size is {}", data.len(), buffer.len());
-
-                        buffer.copy_from_slice(data.as_slice());
-                        //pixels.get_frame_mut().copy_from_slice(data.as_slice());
+                        pixels.get_frame_mut().copy_from_slice(data.as_slice());
                         pixels.render().unwrap();
                     }
                     Err(err) => {
@@ -86,8 +119,9 @@ fn main() {
                     }
                 }
             }
-            default(tokio::time::Duration::from_millis(100)) => (),
+            //default(tokio::time::Duration::from_millis(5)) => (),
         }
+
 
         //pixels.render().expect("Failed to render");
     });
@@ -145,7 +179,7 @@ fn read_a_av_net_packet() -> Option<(VideoPacket, Parameters)> {
 pub async fn keep_reading_packet_from_net(sender: crossbeam_channel::Sender<Vec<u8>>, addr: String) {
     let mut stream = TcpStream::connect(addr).await.unwrap();
 
-    let mut length = vec![0u8;4];
+    let mut length = vec![0u8; 4];
     //let mut length = bytes::Bytes::from(length);
 
     loop {
@@ -160,7 +194,7 @@ pub async fn keep_reading_packet_from_net(sender: crossbeam_channel::Sender<Vec<
         let size = len.get_u32();
 
 
-        let mut buffer = vec![0u8;size as usize];
+        let mut buffer = vec![0u8; size as usize];
 
         if let Err(es) = stream.read_exact(&mut buffer).await {
             println!("error: !!! {}", es);

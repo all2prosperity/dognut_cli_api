@@ -18,3 +18,4 @@ tokio = {version="1", features=["full"]}
 ffmpeg-next = "5.*"
 crossbeam-channel = {version = "0.5.*"} # for thread synchronize
 bytes = "1.4.0"
+image = "0.24.5"
