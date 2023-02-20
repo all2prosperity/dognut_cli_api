@@ -19,3 +19,4 @@ ffmpeg-next = "5.*"
 crossbeam-channel = {version = "0.5.*"} # for thread synchronize
 bytes = "1.4.0"
 image = "0.24.5"
+env_logger = "0.9"

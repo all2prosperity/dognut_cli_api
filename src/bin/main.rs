@@ -33,6 +33,10 @@ fn main() {
     ffmpeg::init().unwrap();
     ffmpeg::log::set_level(ffmpeg::log::Level::Trace);
 
+    let env = env_logger::Env::default();
+    env_logger::Builder::from_env(env).target(env_logger::Target::Stdout).filter(Some("wgpu_core"), log::LevelFilter::Error).
+        filter_level(log::LevelFilter::Info).init();
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Controlled Window")
@@ -108,7 +112,7 @@ fn main() {
                         pixels.render().unwrap();
                     }
                     Err(err) => {
-                        error!("Fuck error {:?}", err.to_string());
+                        //error!("Fuck error {:?}", err.to_string());
                     }
                 }
             }

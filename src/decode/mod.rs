@@ -123,6 +123,7 @@ impl RgbaDecoder {
     pub unsafe fn run_decoding_pipeline(mut self) {
         let mut frame = Video::empty();
         loop {
+            let mut index = 0;
             select! {
                 recv(self.frame_rx) -> data =>  {
                     match data {
@@ -138,10 +139,12 @@ impl RgbaDecoder {
                         }
                     }
                 },
-                default(Duration::from_millis(10)) => (),
+                default(Duration::from_millis(1)) => (),
             }
 
             while self.decoder.receive_frame(&mut frame).is_ok() {
+                info!("received decoded frame index {}", index);
+                index += 1;
                 let data = self.unwrap_avframe_to_rgba(&frame);
                 if self.rgb_tx.send(data).is_err() {
                     break;
