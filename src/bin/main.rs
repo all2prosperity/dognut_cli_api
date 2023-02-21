@@ -73,6 +73,8 @@ fn main() {
     }); // network
 
 
+    let mut quit = false;
+
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -80,6 +82,7 @@ fn main() {
                 ..
             } => {
                 *control_flow = ControlFlow::Exit;
+                quit = true;
             }
             Event::WindowEvent {
                 event,
@@ -92,6 +95,7 @@ fn main() {
                         if let Some(k) = input.virtual_keycode {
                             if k == VirtualKeyCode::Q {
                                 *control_flow = ControlFlow::Exit;
+                                quit = true;
                             }
                         }
                     }
@@ -102,6 +106,10 @@ fn main() {
             Event::RedrawRequested(_) => {}
 
             _ => (),
+        }
+
+        if quit {
+            return ;
         }
 
         select! {
