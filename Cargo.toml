@@ -5,6 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+#name="dognut_cli_lib"
+crate-type = ["lib","cdylib"]
+
 [[bin]]
 name = "main"
 
@@ -20,3 +24,4 @@ crossbeam-channel = {version = "0.5.*"} # for thread synchronize
 bytes = "1.4.0"
 image = "0.24.5"
 env_logger = "0.9"
+flutter_rust_bridge = "1.64.0"

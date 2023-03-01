@@ -8,9 +8,9 @@ use ffmpeg_next::format::input;
 use pixels::{Pixels};
 use winit::{event::*, window::WindowBuilder};
 use winit::event_loop::{ControlFlow, EventLoop};
-use dognut_cli_lib::decode::RgbaDecoder;
 
-use dognut_cli_lib::pb::avpacket::VideoPacket;
+
+
 
 use ffmpeg_next::media::Type;
 use ffmpeg_next::Packet;
@@ -24,7 +24,10 @@ use tokio::runtime::Runtime;
 
 use bytes::Buf;
 use ffmpeg_next as ffmpeg;
-use dognut_cli_lib::pb::netpacket::{NetPacket, PacketKind};
+
+use dognut_cli_lib::pb::netpacket::{PacketKind,NetPacket};
+use dognut_cli_lib::pb::avpacket::VideoPacket;
+
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
@@ -35,7 +38,9 @@ fn main() {
 
     let env = env_logger::Env::default();
     env_logger::Builder::from_env(env).target(env_logger::Target::Stdout).filter(Some("wgpu_core"), log::LevelFilter::Error).
-        filter_level(log::LevelFilter::Info).init();
+        filter_level(log::LevelFilter::Info)
+        .format_timestamp_millis()
+        .init();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -63,7 +68,7 @@ fn main() {
     //let packet = pair.0.write_to_bytes().unwrap();  // file
     //net_tx.send(packet).expect("should send ok");  // file
 
-    let handle = RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
+    let handle = dognut_cli_lib::decode::RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
 
     //donut_cli_lib::decode::encode::RgbaEncoder::run(rgb_rx, net_tx, (WIDTH, HEIGHT));
     let handle = std::thread::spawn(move || { // network

@@ -122,8 +122,8 @@ impl RgbaDecoder {
 
     pub unsafe fn run_decoding_pipeline(mut self) {
         let mut frame = Video::empty();
+        let mut index = 0;
         loop {
-            let mut index = 0;
             select! {
                 recv(self.frame_rx) -> data =>  {
                     match data {
@@ -132,6 +132,7 @@ impl RgbaDecoder {
                                 continue;
                             }
                             self.send_packets(&data).expect("must send ok");
+                            info!("received network packet and send to decoder, index {}", index);
                         }
                         Err(err) => {
                             error!("frame buffer data recv error {:?}", err.to_string());
@@ -151,7 +152,7 @@ impl RgbaDecoder {
                 }
             }
         }
-        info!("encoder thread quit");
+        info!("decoder thread quit");
     }
 }
 
