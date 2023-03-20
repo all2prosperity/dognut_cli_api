@@ -68,7 +68,9 @@ fn main() {
     //let packet = pair.0.write_to_bytes().unwrap();  // file
     //net_tx.send(packet).expect("should send ok");  // file
 
-    let handle = dognut_cli_lib::decode::RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
+    //let handle = dognut_cli_lib::decode::RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
+
+    dognut_cli_lib::decode::img_decode::ImgDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
 
     //donut_cli_lib::decode::encode::RgbaEncoder::run(rgb_rx, net_tx, (WIDTH, HEIGHT));
     let handle = std::thread::spawn(move || { // network

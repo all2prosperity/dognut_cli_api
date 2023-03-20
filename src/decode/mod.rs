@@ -1,31 +1,35 @@
 pub mod encode;
+pub mod img_decode;
 
 use std::thread::JoinHandle;
 use crossbeam_channel::{select};
 use ffmpeg_next as ffmpeg;
+//use ffmpeg_next as ffmpeg;
 
 use ffmpeg::decoder::video;
-use ffmpeg::codec;
 
 use ffmpeg::software::scaling;
-use ffmpeg_next::{ Packet};
-use ffmpeg_next::codec:: Parameters;
+use ffmpeg::{codec, Packet};
+use ffmpeg::codec:: Parameters;
 
-use ffmpeg_next::codec::Id::H264;
+use ffmpeg::codec::Id::H264;
 
-use ffmpeg_next::format::{Pixel};
-use ffmpeg_next::frame::Video;
-use ffmpeg_next::software::scaling::Flags;
+use ffmpeg::format::{Pixel};
+use ffmpeg::frame::Video;
+use ffmpeg::software::scaling::Flags;
 use log::{error, info};
 use std::time::Duration;
-use ffmpeg_next::log::Level;
+use ffmpeg::log::Level;
+//use ffmpeg_next::log::Level;
+use ffmpeg::ffi::*;
 use protobuf::Message;
 use crate::pb;
+
 
 pub struct RgbaDecoder {
     frame_rx: crossbeam_channel::Receiver<Vec<u8>>,
     rgb_tx: crossbeam_channel::Sender<Vec<u8>>,
-    decoder: video::Video,
+    decoder: ffmpeg::decoder::video::Video,
     scale_ctx: scaling::Context,
     dimension: (u32, u32),
     index: i32,
@@ -45,39 +49,6 @@ impl RgbaDecoder {
 
         return handle;
     }
-
-    pub fn run_from_parameter(frame_rx: crossbeam_channel::Receiver<Vec<u8>>, rgb_tx: crossbeam_channel::Sender<Vec<u8>>, dimension:(u32, u32), par: Parameters) -> JoinHandle<()> {
-        ffmpeg::log::set_level(Level::Trace);
-        let handle = std::thread::spawn(move ||  {
-            let encoder = unsafe {Self::new_from_parameter(rgb_tx, frame_rx, dimension, par).expect("ffmpeg encoder init failed") };
-            unsafe {
-                encoder.run_decoding_pipeline();
-            }
-            return ();
-        });
-
-        return handle;
-    }
-
-    pub unsafe fn new_from_parameter(tx: crossbeam_channel::Sender<Vec<u8>>, rx: crossbeam_channel::Receiver<Vec<u8>>,  dimension: (u32, u32), par: Parameters) -> Result<Self, ffmpeg::Error> {
-
-        let context = codec::context::Context::from_parameters(par)?;
-
-        let video = context.decoder().video()?;
-
-        let scaler = scaling::Context::get(Pixel::YUV420P, dimension.0, dimension.1,
-                                           Pixel::RGBA, dimension.0, dimension.1, Flags::BILINEAR)?;
-
-        Ok(Self {
-            rgb_tx: tx,
-            frame_rx: rx,
-            decoder: video,
-            dimension,
-            scale_ctx: scaler,
-            index: 0,
-        })
-    }
-
 
     pub unsafe fn new(tx: crossbeam_channel::Sender<Vec<u8>>, rx: crossbeam_channel::Receiver<Vec<u8>>,  dimension: (u32, u32)) -> Result<Self, ffmpeg::Error> {
         let codec = codec::decoder::find(H264).expect("can't find h264 encoder");
