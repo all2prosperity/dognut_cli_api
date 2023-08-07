@@ -46,6 +46,7 @@ fn main() {
     let window = WindowBuilder::new()
         .with_title("Controlled Window")
         .with_inner_size(winit::dpi::LogicalSize::new(WIDTH, HEIGHT))
+        .with_position(winit::dpi::LogicalPosition::new(1000, 300))
         .build(&event_loop)
         .unwrap();
 
@@ -56,7 +57,7 @@ fn main() {
     let format = pixels.surface_texture_format();
     println!("surface texture format is {:?}", format);
 
-    pixels.set_clear_color(Color::WHITE);
+    pixels.set_clear_color(Color::RED);
 
     let (packet_tx, packet_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
     let (net_tx, net_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
@@ -68,12 +69,12 @@ fn main() {
     //let packet = pair.0.write_to_bytes().unwrap();  // file
     //net_tx.send(packet).expect("should send ok");  // file
 
-    //let handle = dognut_cli_lib::decode::RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
+    let handle = dognut_cli_lib::decode::RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
 
-    dognut_cli_lib::decode::img_decode::ImgDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
+    //dognut_cli_lib::decode::img_decode::ImgDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
 
     //donut_cli_lib::decode::encode::RgbaEncoder::run(rgb_rx, net_tx, (WIDTH, HEIGHT));
-    let handle = std::thread::spawn(move || { // network
+    let handle2 = std::thread::spawn(move || { // network
         let rt = Runtime::new().unwrap(); // network
         let addr = env::args().nth(1).unwrap(); // network
         rt.block_on(keep_reading_packet_from_net(net_tx, addr)); // network

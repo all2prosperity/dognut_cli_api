@@ -23,6 +23,7 @@ use ffmpeg::log::Level;
 //use ffmpeg_next::log::Level;
 use ffmpeg::ffi::*;
 use protobuf::Message;
+use tokio::fs::File;
 use crate::pb;
 
 
@@ -52,9 +53,10 @@ impl RgbaDecoder {
 
     pub unsafe fn new(tx: crossbeam_channel::Sender<Vec<u8>>, rx: crossbeam_channel::Receiver<Vec<u8>>,  dimension: (u32, u32)) -> Result<Self, ffmpeg::Error> {
         let codec = codec::decoder::find(H264).expect("can't find h264 encoder");
+
         let context = codec::context::Context::new();
         let video = context.decoder().open_as(codec).unwrap();
-        let scaler = scaling::Context::get(Pixel::YUV420P, dimension.0, dimension.1,
+        let scaler = scaling::Context::get(Pixel::YUVJ420P, dimension.0, dimension.1,
                                            Pixel::RGBA, dimension.0, dimension.1, Flags::BILINEAR)?;
 
         Ok(Self {
@@ -84,10 +86,12 @@ impl RgbaDecoder {
     unsafe fn unwrap_avframe_to_rgba(&mut self, frame: &Video) -> Vec<u8> {
         let mut rgb_frame =  Video::empty();
         self.scale_ctx.run(frame, &mut rgb_frame).unwrap();
-        if self.index == 0 {
-            save_file(&rgb_frame, 1).unwrap();
-            self.index += 1;
-        }
+        save_file(&rgb_frame, self.index as usize).unwrap();
+        self.index +=1;
+        //if self.index == 0 {
+
+//            self.index += 1;
+//        }
         rgb_frame.data(0).to_vec()
     }
 
@@ -115,8 +119,9 @@ impl RgbaDecoder {
             }
 
             while self.decoder.receive_frame(&mut frame).is_ok() {
-                info!("received decoded frame index {}", index);
+                info!("received decoded frame index {}, is key? {}", index, frame.is_key());
                 index += 1;
+
                 let data = self.unwrap_avframe_to_rgba(&frame);
                 if self.rgb_tx.send(data).is_err() {
                     break;
@@ -128,10 +133,14 @@ impl RgbaDecoder {
 }
 
 fn save_file(frame: &Video, index: usize) -> Result<(), std::io::Error> {
-    //image::save_buffer("image.png", frame.data(0), frame.width(), frame.height(), image::ColorType::Rgba8).unwrap();
-
-//    let mut file = File::create(format!("frame{}.ppm", index))?;
-//    file.write_all(format!("P6\n{} {}\n255\n", frame.width(), frame.height()).as_bytes())?;
-//    file.write_all(frame.data(0))?;
+    if index > 0 {
+        return Ok(());
+    }
+    let name = format!("frame{}.png", index);
+    image::save_buffer(name, frame.data(0), frame.width(), frame.height(), image::ColorType::Rgba8).unwrap();
+//
+   //let mut file = File::create(format!("frame{}.ppm", index))?;
+   //file.write_all(format!("P6\n{} {}\n255\n", frame.width(), frame.height()).as_bytes())?;
+   //file.write_all(frame.data(0))?;
     Ok(())
 }
