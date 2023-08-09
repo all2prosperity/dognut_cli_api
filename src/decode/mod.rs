@@ -1,5 +1,4 @@
 pub mod encode;
-pub mod img_decode;
 
 use std::thread::JoinHandle;
 use crossbeam_channel::{select};

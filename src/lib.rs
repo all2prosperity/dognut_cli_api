@@ -2,8 +2,10 @@ extern crate core;
 extern crate libc;
 extern crate bitflags;
 
+#[cfg(rtc)]
 pub mod decode;
 pub mod network;
+pub mod img_decode;
 pub mod pb;
 
 

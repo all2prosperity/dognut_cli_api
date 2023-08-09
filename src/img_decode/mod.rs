@@ -1,6 +1,6 @@
 use std::thread::JoinHandle;
 use std::time::Instant;
-use log::{debug, error, info};
+use log::{error, info};
 use protobuf::Message;
 use turbojpeg::PixelFormat;
 use crate::pb;
@@ -32,8 +32,7 @@ impl ImgDecoder {
         return handle;
     }
 
-    pub fn run_decoding_pipeline(mut self) {
-        let mut index = 0;
+    pub fn run_decoding_pipeline(self) {
         loop {
             if let Ok(data) = self.frame_rx.recv() {
                 let now = Instant::now();
