@@ -15,10 +15,10 @@ use winit::event_loop::{ControlFlow, EventLoop};
 //
 // use ffmpeg_next::media::Type;
 // use ffmpeg_next::Packet;
-use log::error;
+
 use pixels::wgpu::{Color};
 use pixels::SurfaceTexture;
-use protobuf::{EnumOrUnknown, Message};
+use protobuf::{Message};
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
@@ -27,7 +27,7 @@ use bytes::Buf;
 //use ffmpeg_next as ffmpeg;
 
 use dognut_cli_lib::pb::netpacket::{PacketKind,NetPacket};
-use dognut_cli_lib::pb::avpacket::VideoPacket;
+
 
 
 const WIDTH: u32 = 640;
@@ -62,7 +62,7 @@ fn main() {
     let (packet_tx, packet_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
     let (net_tx, net_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
 
-    let (rgb_tx, rgb_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
+    let (_rgb_tx, _rgb_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
 
     //let pair = read_a_av_net_packet().unwrap(); // file
     //let handle = RgbaDecoder::run_from_parameter(net_rx, packet_tx, (WIDTH, HEIGHT), pair.1); // file
@@ -76,7 +76,7 @@ fn main() {
     dognut_cli_lib::img_decode::ImgDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
 
     //donut_cli_lib::decode::encode::RgbaEncoder::run(rgb_rx, net_tx, (WIDTH, HEIGHT));
-    let handle = std::thread::spawn(move || { // network
+    let _handle = std::thread::spawn(move || { // network
         let rt = Runtime::new().unwrap(); // network
         let addr = env::args().nth(1).unwrap(); // network
         rt.block_on(keep_reading_packet_from_net(net_tx, addr)); // network
@@ -129,7 +129,7 @@ fn main() {
                         pixels.frame_mut().copy_from_slice(data.as_slice());
                         pixels.render().unwrap();
                     }
-                    Err(err) => {
+                    Err(_err) => {
                         //error!("Fuck error {:?}", err.to_string());
                     }
                 }
