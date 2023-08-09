@@ -31,4 +31,5 @@ bitflags = "*"
 libc = "*"
 
 [features]
+rtc = ["dep:ffmpeg-next"]
 example = ["dep:pixels", "dep:winit", "dep:winit_input_helper"]

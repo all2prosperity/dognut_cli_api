@@ -3,17 +3,18 @@ extern crate core;
 use std::{env};
 use std::io::ErrorKind;
 use crossbeam_channel::select;
-use ffmpeg_next::codec::Parameters;
-use ffmpeg_next::format::input;
+
+//use ffmpeg_next::codec::Parameters;
+//use ffmpeg_next::format::input;
 use pixels::{Pixels};
 use winit::{event::*, window::WindowBuilder};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 
 
-
-use ffmpeg_next::media::Type;
-use ffmpeg_next::Packet;
+//
+// use ffmpeg_next::media::Type;
+// use ffmpeg_next::Packet;
 use log::error;
 use pixels::wgpu::{Color};
 use pixels::SurfaceTexture;
@@ -23,7 +24,7 @@ use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 
 use bytes::Buf;
-use ffmpeg_next as ffmpeg;
+//use ffmpeg_next as ffmpeg;
 
 use dognut_cli_lib::pb::netpacket::{PacketKind,NetPacket};
 use dognut_cli_lib::pb::avpacket::VideoPacket;
@@ -33,8 +34,8 @@ const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
 
 fn main() {
-    ffmpeg::init().unwrap();
-    ffmpeg::log::set_level(ffmpeg::log::Level::Trace);
+    //ffmpeg::init().unwrap();
+    //ffmpeg::log::set_level(ffmpeg::log::Level::Trace);
 
     let env = env_logger::Env::default();
     env_logger::Builder::from_env(env).target(env_logger::Target::Stdout).filter(Some("wgpu_core"), log::LevelFilter::Error).
@@ -56,7 +57,7 @@ fn main() {
     let format = pixels.surface_texture_format();
     println!("surface texture format is {:?}", format);
 
-    pixels.set_clear_color(Color::WHITE);
+    pixels.clear_color(Color::WHITE);
 
     let (packet_tx, packet_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
     let (net_tx, net_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
@@ -68,9 +69,11 @@ fn main() {
     //let packet = pair.0.write_to_bytes().unwrap();  // file
     //net_tx.send(packet).expect("should send ok");  // file
 
-    //let handle = dognut_cli_lib::decode::RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
+    #[cfg(rtc)]
+    let handle = dognut_cli_lib::decode::RgbaDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
 
-    dognut_cli_lib::decode::img_decode::ImgDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
+    #[cfg(not(rtc))]
+    dognut_cli_lib::img_decode::ImgDecoder::run(net_rx, packet_tx, (WIDTH, HEIGHT)); // network
 
     //donut_cli_lib::decode::encode::RgbaEncoder::run(rgb_rx, net_tx, (WIDTH, HEIGHT));
     let handle = std::thread::spawn(move || { // network
@@ -123,7 +126,7 @@ fn main() {
             recv(packet_rx) -> data => {
                 match data {
                     Ok(data) => {
-                        pixels.get_frame_mut().copy_from_slice(data.as_slice());
+                        pixels.frame_mut().copy_from_slice(data.as_slice());
                         pixels.render().unwrap();
                     }
                     Err(err) => {
@@ -138,6 +141,7 @@ fn main() {
     });
 }
 
+#[cfg(rtc)]
 fn read_a_av_packet() -> Option<(Packet, Parameters)> {
     if let Ok(mut ictx) = input(&env::args().nth(1).expect("Cannot open file.")) {
         let input = ictx.streams()
@@ -159,7 +163,7 @@ fn read_a_av_packet() -> Option<(Packet, Parameters)> {
     return None;
 }
 
-
+#[cfg(rtc)]
 fn read_a_av_net_packet() -> Option<(VideoPacket, Parameters)> {
     if let Ok(mut ictx) = input(&env::args().nth(1).expect("Cannot open file.")) {
         let input = ictx.streams()
