@@ -39,7 +39,7 @@ impl ImgDecoder {
                 let vid_packet = pb::avpacket::VideoPacket::parse_from_bytes(data.as_slice()).unwrap();
 
                 let rgba = turbojpeg::decompress(vid_packet.data.as_slice(), PixelFormat::RGBA).unwrap();
-                info!("decoded frame width {}, height {}, cost {}", rgba.width, rgba.height, now.elapsed().as_millis());
+                //info!("decoded frame width {}, height {}, cost {}", rgba.width, rgba.height, now.elapsed().as_millis());
                 if self.rgb_tx.send(rgba.pixels).is_err() {
                     error!("send rgba data error");
                     break;

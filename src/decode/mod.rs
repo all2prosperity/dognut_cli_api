@@ -106,7 +106,7 @@ impl RgbaDecoder {
                                 continue;
                             }
                             self.send_packets(&data).expect("must send ok");
-                            info!("received network packet and send to decoder, index {}", index);
+                            //info!("received network packet and send to decoder, index {}", index);
                         }
                         Err(err) => {
                             error!("frame buffer data recv error {:?}", err.to_string());
@@ -118,7 +118,7 @@ impl RgbaDecoder {
             }
 
             while self.decoder.receive_frame(&mut frame).is_ok() {
-                info!("received decoded frame index {}, is key? {}", index, frame.is_key());
+                //info!("received decoded frame index {}, is key? {}", index, frame.is_key());
                 index += 1;
 
                 let data = self.unwrap_avframe_to_rgba(&frame);

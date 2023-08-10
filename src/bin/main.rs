@@ -1,8 +1,10 @@
+#![feature(iter_array_chunks)]
 extern crate core;
 
 use std::{env};
-use std::io::ErrorKind;
-use crossbeam_channel::select;
+use std::io::{ErrorKind, Write};
+use std::time::Duration;
+use crossbeam_channel::{select, TryRecvError};
 
 //use ffmpeg_next::codec::Parameters;
 //use ffmpeg_next::format::input;
@@ -11,6 +13,11 @@ use winit::{event::*, window::WindowBuilder};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 
+use crossterm;
+use crossterm::{event, execute, queue, terminal};
+use crossterm::event::{Event as ev, KeyCode};
+use crossterm::terminal::{ClearType, disable_raw_mode, enable_raw_mode, EnterAlternateScreen};
+use crossterm::style::Stylize;
 
 //
 // use ffmpeg_next::media::Type;
@@ -28,7 +35,8 @@ use bytes::Buf;
 
 use dognut_cli_lib::pb::netpacket::{PacketKind,NetPacket};
 
-
+const TUI_WIDTH: u16 = 256;
+const TUI_HEIGHT: u16 = 79;
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
@@ -57,7 +65,7 @@ fn main() {
     let format = pixels.surface_texture_format();
     println!("surface texture format is {:?}", format);
 
-    pixels.clear_color(Color::WHITE);
+    pixels.set_clear_color(Color::WHITE);
 
     let (packet_tx, packet_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
     let (net_tx, net_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
@@ -85,48 +93,52 @@ fn main() {
 
     let mut quit = false;
 
-    event_loop.run(move |event, _, control_flow| {
-        match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                *control_flow = ControlFlow::Exit;
-                quit = true;
-            }
-            Event::WindowEvent {
-                event,
-                ..
-            } => {
-                match event {
-                    WindowEvent::Resized(_) => {}
-                    WindowEvent::Moved(_) => {}
-                    WindowEvent::KeyboardInput { input, .. } => {
-                        if let Some(k) = input.virtual_keycode {
-                            if k == VirtualKeyCode::Q {
-                                *control_flow = ControlFlow::Exit;
-                                quit = true;
+    if env::args().nth(2).unwrap() == "t" {
+        tui_presenter(packet_rx);
+        return ;
+    }else {
+        event_loop.run(move |event, _, control_flow| {
+            match event {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => {
+                    *control_flow = ControlFlow::Exit;
+                    quit = true;
+                }
+                Event::WindowEvent {
+                    event,
+                    ..
+                } => {
+                    match event {
+                        WindowEvent::Resized(_) => {}
+                        WindowEvent::Moved(_) => {}
+                        WindowEvent::KeyboardInput { input, .. } => {
+                            if let Some(k) = input.virtual_keycode {
+                                if k == VirtualKeyCode::Q {
+                                    *control_flow = ControlFlow::Exit;
+                                    quit = true;
+                                }
                             }
                         }
+                        _ => {}
                     }
-                    _ => {}
+                    //window.request_redraw();
                 }
-                //window.request_redraw();
+                Event::RedrawRequested(_) => {}
+
+                _ => (),
             }
-            Event::RedrawRequested(_) => {}
 
-            _ => (),
-        }
+            if quit {
+                return ;
+            }
 
-        if quit {
-            return ;
-        }
-
-        select! {
+            select! {
             recv(packet_rx) -> data => {
                 match data {
                     Ok(data) => {
-                        pixels.frame_mut().copy_from_slice(data.as_slice());
+                        pixels.get_frame_mut().copy_from_slice(data.as_slice());
                         pixels.render().unwrap();
                     }
                     Err(_err) => {
@@ -137,8 +149,10 @@ fn main() {
             //default(tokio::time::Duration::from_millis(5)) => (),
         }
 
-        //pixels.render().expect("Failed to render");
-    });
+            //pixels.render().expect("Failed to render");
+        });
+    }
+
 }
 
 #[cfg(rtc)]
@@ -224,4 +238,62 @@ pub async fn keep_reading_packet_from_net(sender: crossbeam_channel::Sender<Vec<
             }
         }
     }
+}
+
+
+pub fn tui_presenter(receiver: crossbeam_channel::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>>{
+    let mut stdout = std::io::stdout();
+    enable_raw_mode()?;
+
+    execute!(stdout, crossterm::cursor::Hide);
+    execute!(stdout, EnterAlternateScreen, event::EnableMouseCapture);
+    execute!(stdout, crossterm::terminal::Clear(ClearType::All));
+
+
+
+    loop {
+        if let Ok(ready) = event::poll(Duration::from_secs(0)) {
+            if ready {
+                let event_res = event::read();
+                if event_res.is_ok() {
+                    match event_res.unwrap() {
+                        ev::Key(k) => {
+                            if k.code == KeyCode::Char('q') {
+                                break;
+                            }
+
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        let res = receiver.try_recv();
+        if let Err(err) = res {
+            if err == TryRecvError::Empty {
+                continue;
+            }
+        }
+
+        let data = res.unwrap();
+        let (mut x, mut y) = (0, 0);
+        for(n, [r, g, b, c]) in data.iter().array_chunks().enumerate() {
+            if *c == 0 {
+                continue;
+            }
+            x = n % TUI_WIDTH as usize;
+            y = n / TUI_WIDTH as usize;
+            queue!(stdout, crossterm::cursor::MoveTo(x as u16, y as u16));
+            queue!(stdout, crossterm::style::PrintStyledContent(('•' as char).with(crossterm::style::Color::Rgb {r:*r ,g: *g, b:*b})));
+        }
+        stdout.flush().unwrap();
+    }
+
+    execute!(stdout, terminal::Clear(ClearType::All));
+    execute!(stdout, terminal::LeaveAlternateScreen, event::DisableMouseCapture);
+    execute!(stdout, crossterm::cursor::Show);
+    disable_raw_mode().unwrap();
+
+    Ok(())
 }
